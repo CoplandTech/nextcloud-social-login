@@ -50,6 +50,9 @@ class Yandex extends OAuth2
 
         $response = $this->apiRequest($this->apiBaseUrl, 'GET', ['format' => 'json']);
 
+        // Вывод ответа для отладки
+        file_put_contents('/tmp/logfile.log', print_r($response, true), FILE_APPEND);
+
         if (!isset($response->id)) {
             throw new UnexpectedApiResponseException('Provider API returned an unexpected response.');
         }
@@ -61,16 +64,23 @@ class Yandex extends OAuth2
         }
 
         $userProfile = new User\Profile();
-        $userProfile->identifier = $data->get('id');
+        $userProfile->identifier = str_replace('.', '_', explode('@', $data->get('login'))[0]);
         $userProfile->firstName = $data->get('first_name');
         $userProfile->lastName = $data->get('last_name');
-        $userProfile->displayName = $data->get('display_name');
+        // Условие для displayName: если display_name равен default_email, используем real_name
+        if ($data->get('display_name') === $data->get('default_email')) {
+            $userProfile->displayName = $data->get('real_name');
+        } else {
+            $userProfile->displayName = $data->get('display_name');
+        }
         $userProfile->photoURL
             = 'https://avatars.yandex.net/get-yapic/' .
             $data->get('default_avatar_id') . '/islands-200';
         $userProfile->gender = $data->get('sex');
         $userProfile->email = $data->get('default_email');
         $userProfile->emailVerified = $data->get('default_email');
+        // Добавление номера телефона
+        $userProfile->phone = $data->filter('default_phone')->get('number');
 
         if ($data->get('birthday')) {
             list($birthday_year, $birthday_month, $birthday_day)
