@@ -322,6 +322,18 @@ class ProviderService
 
     private function auth($class, array $config, $provider, $providerType = null)
     {
+        // Counting the number of active providers
+        $activeProviders = json_decode($this->config->getAppValue('sociallogin', 'oauth_providers'), true) ?: [];
+        $activeProvidersCount = count(array_filter($activeProviders, fn($prov) => !empty($prov['appid'])));
+
+        if (empty($config)) {
+            if (!$providerType) {
+                $providerType = explode('\\', $class);
+                $providerType = end($providerType);
+            }
+            throw new LoginException($this->l->t('Unknown %s provider: "%s"', [$providerType, $provider]));
+        }
+        
         if (empty($config)) {
             if (!$providerType) {
                 $providerType = explode('\\', $class);
@@ -459,11 +471,19 @@ class ProviderService
         if ($provider === 'telegram') {
             $provider = 'tg'; //For backward compatibility
         }
-        $uid = $provider.'-'.$profileId;
+        
+        // Defining the uid with the condition for adding the provider prefix
+        $uid = $profileId;
+
         if (strlen($uid) > 64 || !preg_match('#^[a-z0-9_.@-]+$#i', $profileId)) {
             $uid = $provider.'-'.md5($profileId);
         }
-        return $this->login($uid, $profile, $provider.'-');
+        
+        if ($activeProvidersCount > 1) {
+            $uid = $provider . '-' . $profileId;
+        }
+
+        return $this->login($uid, $profile, $activeProvidersCount > 1 ? $provider . '-' : '');
     }
 
     private function login($uid, Profile $profile, $newGroupPrefix = '')
