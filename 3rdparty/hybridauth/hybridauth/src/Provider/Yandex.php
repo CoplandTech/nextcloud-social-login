@@ -18,6 +18,12 @@ use Hybridauth\User;
  */
 class Yandex extends OAuth2
 {
+    
+    /**
+     * {@inheritdoc}
+     */
+    protected $scope = '';
+    
     /**
      * {@inheritdoc}
      */
@@ -39,6 +45,29 @@ class Yandex extends OAuth2
     protected $apiDocumentation
         = 'https://yandex.com/dev/oauth/doc/dg/concepts/about-docpage/';
 
+    protected function initialize()
+    {
+        parent::initialize();
+        
+        // Устанавливаем параметры авторизации
+        $this->AuthorizeUrlParameters = [
+            'response_type' => 'code',
+            'client_id' => $this->clientId,
+            'redirect_uri' => $this->callback,
+            'scope' => $this->scope,
+            'force_confirm' => '1',
+            'prompt' => 'select_account',
+            'nosession' => '1'
+        ];
+        
+        // Исправление проблемы с state
+        $this->tokenExchangeParameters = [
+            'client_id' => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'grant_type' => 'authorization_code'
+        ];
+    }
+    
     /**
      * Load the user profile from the IDp api client
      *
@@ -46,8 +75,6 @@ class Yandex extends OAuth2
      */
     public function getUserProfile()
     {
-        $this->scope = implode(',', []);
-
         $response = $this->apiRequest($this->apiBaseUrl, 'GET', ['format' => 'json']);
 
         // Вывод ответа для отладки
